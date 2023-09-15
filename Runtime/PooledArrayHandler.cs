@@ -7,12 +7,12 @@ namespace Dythervin.ObjectPool
 {
     public static class ArrayPoolHandlerExt
     {
-        public static PooledArrayHandler<T> ToPooledArray<T>(this IReadOnlyList<T> list)
+        public static PooledArrayHandler<T> ToTempArray<T>(this IReadOnlyList<T> list)
         {
             return new PooledArrayHandler<T>(list);
         }
 
-        public static PooledArrayHandler<T> ToPooledArray<T>(this HashSet<T> list)
+        public static PooledArrayHandler<T> ToTempArray<T>(this HashSet<T> list)
         {
             return new PooledArrayHandler<T>(list);
         }
@@ -50,7 +50,7 @@ namespace Dythervin.ObjectPool
         public PooledArrayHandler(int count)
         {
             Count = count;
-            _tempArray = ArrayPool<T>.Shared.Rent(Count);
+            _tempArray = System.Buffers.ArrayPool<T>.Shared.Rent(Count);
         }
 
         public PooledArrayHandler(HashSet<T> hashSet) : this(hashSet.Count)
@@ -77,7 +77,7 @@ namespace Dythervin.ObjectPool
 
         public void Dispose()
         {
-            ArrayPool<T>.Shared.Return(_tempArray, ClearOnDispose);
+            System.Buffers.ArrayPool<T>.Shared.Return(_tempArray, ClearOnDispose);
             _tempArray = null;
         }
 

@@ -1,4 +1,5 @@
 ﻿{
   "name": "Dythervin.ObjectPool",
-  "rootNamespace": "Dythervin.ObjectPool"
+  "rootNamespace": "Dythervin.ObjectPool",
+  "references":[ "GUID:0d2722be3221441990b3d439a49d3d00" ]
 }

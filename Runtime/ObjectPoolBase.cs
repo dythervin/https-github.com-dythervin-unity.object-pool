@@ -4,7 +4,6 @@ using System.ComponentModel;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-
 namespace Dythervin.ObjectPool
 {
     [Serializable]
@@ -59,7 +58,9 @@ namespace Dythervin.ObjectPool
             this.collectionCheckDefault = collectionCheckDefault;
         }
 
-        protected ObjectPoolBase() { }
+        protected ObjectPoolBase() : this(DefaultCollectionCheck)
+        {
+        }
 
         public ObjectPoolBase<T> EnsureObjCount(int count)
         {
@@ -87,13 +88,14 @@ namespace Dythervin.ObjectPool
             _stack = new Stack<T>(capacity);
         }
 
-        protected void OnDestroyInvoke(T element)
+        protected void DestroyObj(T element)
         {
             var actionOnDestroy = OnDestroy;
             actionOnDestroy?.Invoke(element);
+            CountAll--;
         }
 
-        protected void OnReleaseInvoke(T element)
+        protected void OnObjectReleased(T element)
         {
             var actionOnRelease = OnRelease;
             actionOnRelease?.Invoke(element);
@@ -110,21 +112,9 @@ namespace Dythervin.ObjectPool
 
         protected abstract T CreateNew();
 
-        protected virtual void OnReleased(T element) { }
-
         public void Dispose()
         {
-            Clear();
-        }
-
-        public virtual void Clear()
-        {
-            if (OnDestroy != null)
-                foreach (T obj in _stack)
-                    OnDestroy(obj);
-
-            _stack.Clear();
-            CountAll = 0;
+            Clear(1);
         }
 
         object IObjectPool.Get()
@@ -132,22 +122,42 @@ namespace Dythervin.ObjectPool
             return Get();
         }
 
-        public PooledObjectHandler Get(out object obj)
+        void IObjectPool.Release(ref object element)
         {
-            obj = Get();
-            return new PooledObjectHandler(this, obj);
+            Release((T)element, collectionCheckDefault);
+            element = null;
         }
 
-        public void Release(ref object element)
+        void IObjectPool.Release(ref object element, bool collectionCheck)
         {
-            Release(ref element, collectionCheckDefault);
+            Release((T)element, collectionCheck);
+            element = null;
         }
 
-        public void Release(ref object element, bool collectionCheck)
+        void IObjectPool.Release(object element)
         {
-            T tObj = (T)element;
-            Release(ref tObj, collectionCheck);
-            element = tObj;
+            Release((T)element, collectionCheckDefault);
+        }
+
+        void IObjectPool.Release(object element, bool collectionCheck)
+        {
+            Release((T)element, collectionCheck);
+        }
+
+        public void Clear(float percent = 1)
+        {
+            if (percent > 1 || percent <= 0)
+            {
+                Debug.LogError($"{nameof(percent)} must be in range (0.0; 1.0]");
+                return;
+            }
+
+            int count = (int)(_stack.Count * percent);
+            for (int i = 0; i < count; i++)
+            {
+                T obj = _stack.Pop();
+                DestroyObj(obj);
+            }
         }
 
         public virtual T Get()
@@ -157,30 +167,31 @@ namespace Dythervin.ObjectPool
             return obj;
         }
 
-        // ReSharper disable once UnusedParameter.Global
         public void Release(ref T element, bool collectionCheck)
         {
-            Debug.Assert(element != null);
+            Release(element, collectionCheck);
+
+            element = null;
+        }
+
+        public void Release(T element)
+        {
+            Release(element, collectionCheckDefault);
+        }
+
+        public void Release(T element, bool collectionCheck)
+        {
+            Assert.IsNotNull(element);
 
             if (collectionCheck && _stack.Count > 0 && _stack.Contains(element))
-                throw new InvalidOperationException(
-                    "Trying to release an object that has already been released to the pool.");
+                throw new InvalidOperationException("Trying to release an object that has already been released to the pool.");
 
-            OnReleaseInvoke(element);
+            OnObjectReleased(element);
 
             if (_stack.Count < maxSize)
                 _stack.Push(element);
             else
-                OnDestroyInvoke(element);
-
-            OnReleased(element);
-            element = null;
-        }
-
-        public PooledObjectHandler<T> Get(out T obj)
-        {
-            obj = Get();
-            return new PooledObjectHandler<T>(this, obj);
+                DestroyObj(element);
         }
 
         public void Release(ref T element)

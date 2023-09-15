@@ -6,19 +6,23 @@ namespace Dythervin.ObjectPool
     {
         int CountInactive { get; }
 
-        void Clear();
+        int CountActive { get; }
 
         object Get();
 
-        PooledObjectHandler Get(out object obj);
-
-
         void Release(ref object element);
 
-        public void Release(ref object element, bool collectionCheck);
+        void Release(ref object element, bool collectionCheck);
+
+        void Release(object element);
+
+        void Release(object element, bool collectionCheck);
+
+        void Clear(float percent = 1);
     }
 
-    public interface IObjectPoolOut<out T> : IObjectPool where T : class
+    public interface IObjectPoolOut<out T> : IObjectPool
+        where T : class
     {
         event Action<T> OnCreated;
 
@@ -31,13 +35,14 @@ namespace Dythervin.ObjectPool
         new T Get();
     }
 
-
-    public interface IObjectPool<T> : IObjectPoolOut<T> where T : class
+    public interface IObjectPool<T> : IObjectPoolOut<T>
+        where T : class
     {
-        PooledObjectHandler<T> Get(out T obj);
-
         void Release(ref T obj);
 
-        public void Release(ref T element, bool collectionCheck);
+        void Release(ref T element, bool collectionCheck);
+        void Release(T element);
+
+        void Release(T element, bool collectionCheck);
     }
 }
